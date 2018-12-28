@@ -26,12 +26,11 @@ package agents;
  */
 
 import behaviours.FirstMatchBehaviour;
-import behaviours.TinderBehaviour;
 import jade.core.AID;
 import jade.core.Agent;
 
-import java.util.Arrays;
-import java.util.Random;
+import java.awt.*;
+import java.util.HashMap;
 
 /**
  This example shows a minimal agent that just prints "Hallo World!"
@@ -40,8 +39,10 @@ import java.util.Random;
  */
 
 public class TinderAgent extends Agent {
-    private AID aid = new AID();
-    private int[] localisation;
+    private AID aid;
+    private HashMap<AID, Float> contactedAgents;
+    private TinderSupervisorAgent tinderSupervisorAgent;
+    private Point localisation;
     private Genre genre;
     private Orientation orientation;
     private int sociability;
@@ -66,12 +67,15 @@ public class TinderAgent extends Agent {
     int maxPosition = 30;
 
     //random generation
-    public TinderAgent(){
+    public TinderAgent(TinderSupervisorAgent tinderSupervisorAgent){
+        this.aid = new AID();
+        this.contactedAgents = new HashMap<AID, Float>();
+        this.tinderSupervisorAgent = tinderSupervisorAgent;
         this.genre = allGenres[(int) (Math.random() * 2)];
         this.orientation = allOrientations[(int)(Math.random() * 3)];
-        int randomx = minPosition + (int)(Math.random() * ((maxPosition - minPosition) + 1));
-        int randomy = minPosition + (int)(Math.random() * ((maxPosition - minPosition) + 1));
-        this.localisation = new int[] {randomx, randomy};
+        int randomX = minPosition + (int)(Math.random() * ((maxPosition - minPosition) + 1));
+        int randomY = minPosition + (int)(Math.random() * ((maxPosition - minPosition) + 1));
+        this.localisation = new Point(randomX, randomY);
         this.sociability = (int)(Math.random() * 5);
         this.seriosity = (int)(Math.random() * 5);
         this.sportivity = (int)(Math.random() * 5);
@@ -148,6 +152,29 @@ public class TinderAgent extends Agent {
         return true;
     }
 
+    public Float matchScore(TinderAgent agent) {
+        if(match(agent)) {
+            return 100f;
+        }
+        else return 0f;
+    }
+
+    public TinderSupervisorAgent getTinderSupervisorAgent() {
+        return tinderSupervisorAgent;
+    }
+
+    public void setTinderSupervisorAgent(TinderSupervisorAgent tinderSupervisorAgent) {
+        this.tinderSupervisorAgent = tinderSupervisorAgent;
+    }
+
+    public HashMap<AID, Float> getContactedAgents() {
+        return contactedAgents;
+    }
+
+    public void setContactedAgents(HashMap<AID, Float> contactedAgents) {
+        this.contactedAgents = contactedAgents;
+    }
+
     public AID getAid() {
         return aid;
     }
@@ -156,11 +183,11 @@ public class TinderAgent extends Agent {
         this.aid = aid;
     }
 
-    public int[] getLocalisation() {
+    public Point getLocalisation() {
         return localisation;
     }
 
-    public void setLocalisation(int[] localisation) {
+    public void setLocalisation(Point localisation) {
         this.localisation = localisation;
     }
 
