@@ -1,0 +1,1 @@
+public enum ExpectationType {CONSTANT, LINEAR, EXPONENTIAL} 
