@@ -28,8 +28,20 @@ package agents;
 import behaviours.FirstMatchBehaviour;
 import jade.core.AID;
 import jade.core.Agent;
+import jade.core.behaviours.Behaviour;
+import jade.domain.DFService;
+import jade.domain.FIPAException;
+import jade.domain.FIPANames;
+import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.ServiceDescription;
+import jade.domain.FIPAAgentManagement.Property;
+import jade.domain.FIPAAgentManagement.SearchConstraints;
+import jade.proto.SubscriptionInitiator;
+import jade.lang.acl.ACLMessage;
+import jade.util.leap.Iterator;
 
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
@@ -39,9 +51,9 @@ import java.util.HashMap;
  */
 
 public class TinderAgent extends Agent {
+    private ArrayList<AID> tinderAgents;
     private AID aid;
     private HashMap<AID, Float> contactedAgents;
-    private TinderSupervisorAgent tinderSupervisorAgent;
     private Point localisation;
     private Genre genre;
     private Orientation orientation;
@@ -57,6 +69,7 @@ public class TinderAgent extends Agent {
     private int sportivityWantedMax;
     private int cultureWantedMin;
     private int cultureWantedMax;
+    private float mateScore;
 
     public enum Genre {F, M}
     public enum Orientation {HOMO, BISEXUAL, STRAIGHT}
@@ -67,15 +80,15 @@ public class TinderAgent extends Agent {
     int maxPosition = 30;
 
     //random generation
-    public TinderAgent(TinderSupervisorAgent tinderSupervisorAgent){
+    public TinderAgent(){
+        this.tinderAgents = new ArrayList<>();
         this.aid = new AID();
         this.contactedAgents = new HashMap<AID, Float>();
-        this.tinderSupervisorAgent = tinderSupervisorAgent;
-        this.genre = allGenres[(int) (Math.random() * 2)];
-        this.orientation = allOrientations[(int)(Math.random() * 3)];
         int randomX = minPosition + (int)(Math.random() * ((maxPosition - minPosition) + 1));
         int randomY = minPosition + (int)(Math.random() * ((maxPosition - minPosition) + 1));
         this.localisation = new Point(randomX, randomY);
+        this.genre = allGenres[(int) (Math.random() * 2)];
+        this.orientation = allOrientations[(int)(Math.random() * 3)];
         this.sociability = (int)(Math.random() * 5);
         this.seriosity = (int)(Math.random() * 5);
         this.sportivity = (int)(Math.random() * 5);
@@ -93,36 +106,64 @@ public class TinderAgent extends Agent {
         this.cultureWantedMin = (int)(Math.random() * 5);
         this.cultureWantedMax = cultureWantedMin + (int)(Math.random() * ((4 - cultureWantedMin) + 1));
 
-    }
-
-    public TinderAgent(Genre genre, Orientation orientation, int sociability, int seriosity, int sportivity, int culture, int sociabilityWantedMin, int sociabilityWantedMax, int seriosityWantedMin, int seriosityWantedMax, int sportivityWantedMin, int sportivityWantedMax, int cultureWantedMin, int cultureWantedMax) {
-        this.genre = genre;
-        this.orientation = orientation;
-        this.sociability = sociability;
-        this.seriosity = seriosity;
-        this.sportivity = sportivity;
-        this.culture = culture;
-        this.sociabilityWantedMin = sociabilityWantedMin;
-        this.sociabilityWantedMax = sociabilityWantedMax;
-        this.seriosityWantedMin = seriosityWantedMin;
-        this.seriosityWantedMax = seriosityWantedMax;
-        this.sportivityWantedMin = sportivityWantedMin;
-        this.sportivityWantedMax = sportivityWantedMax;
-        this.cultureWantedMin = cultureWantedMin;
-        this.cultureWantedMax = cultureWantedMax;
+        this.mateScore = 0;
     }
 
     protected void setup() {
-        System.out.println("Hello World! I'm a new tinder agent");
+        System.out.println("Hello World! I'm tinder agent " + aid.toString());
 
-        addBehaviour(new FirstMatchBehaviour(this));
+        // Search for services of type "tinder"
+        System.out.println("Agent "+getLocalName()+" searching for services of type \"tinder\"");
+        try {
+            // Build the description used as template for the search
+            DFAgentDescription template = new DFAgentDescription();
+            ServiceDescription templateSd = new ServiceDescription();
+            templateSd.setType("tinder");
+            template.addServices(templateSd);
+
+            SearchConstraints sc = new SearchConstraints();
+            // We want to receive 10 results at most
+            sc.setMaxResults(new Long(10));
+
+            DFAgentDescription[] results = DFService.search(this, template, sc);
+            if (results.length > 0) {
+                System.out.println("Agent "+getLocalName()+" found the following tinder services:");
+                for (int i = 0; i < results.length; ++i) {
+                    DFAgentDescription dfd = results[i];
+                    AID provider = dfd.getName();
+                    // The same agent may provide several services; we are only interested
+                    // in the tinder one
+                    Iterator it = dfd.getAllServices();
+                    while (it.hasNext()) {
+                        ServiceDescription sd = (ServiceDescription) it.next();
+                        if (sd.getType().equals("tinder")) {
+                            ACLMessage msg = new ACLMessage(ACLMessage.SUBSCRIBE);
+                            msg.addReceiver(provider);
+                            msg.setContent(localisation.x + "," + localisation.y);
+                            System.out.println("Localisation sent");
+                            send(msg);
+                            break;
+                        }
+
+                    }
+                }
+            }
+            else {
+                System.out.println("Agent "+getLocalName()+" did not find any tinder service");
+            }
+        }
+        catch (FIPAException fe) {
+            fe.printStackTrace();
+        }
+
+        //addBehaviour(new FirstMatchBehaviour(this));
 
         // Make this agent terminate
-        doDelete();
+        //doDelete();
     }
 
     protected void takeDown() {
-        System.out.println("Tinder agent terminating");
+        System.out.println("Tinder agent " + aid.toString() + " terminating");
     }
 
     public boolean match(TinderAgent agent) {
@@ -159,20 +200,12 @@ public class TinderAgent extends Agent {
         else return 0f;
     }
 
-    public TinderSupervisorAgent getTinderSupervisorAgent() {
-        return tinderSupervisorAgent;
+    public ArrayList<AID> getTinderAgents() {
+        return tinderAgents;
     }
 
-    public void setTinderSupervisorAgent(TinderSupervisorAgent tinderSupervisorAgent) {
-        this.tinderSupervisorAgent = tinderSupervisorAgent;
-    }
-
-    public HashMap<AID, Float> getContactedAgents() {
-        return contactedAgents;
-    }
-
-    public void setContactedAgents(HashMap<AID, Float> contactedAgents) {
-        this.contactedAgents = contactedAgents;
+    public void setTinderAgents(ArrayList<AID> tinderAgents) {
+        this.tinderAgents = tinderAgents;
     }
 
     public AID getAid() {
@@ -181,6 +214,14 @@ public class TinderAgent extends Agent {
 
     public void setAid(AID aid) {
         this.aid = aid;
+    }
+
+    public HashMap<AID, Float> getContactedAgents() {
+        return contactedAgents;
+    }
+
+    public void setContactedAgents(HashMap<AID, Float> contactedAgents) {
+        this.contactedAgents = contactedAgents;
     }
 
     public Point getLocalisation() {
@@ -301,6 +342,14 @@ public class TinderAgent extends Agent {
 
     public void setCultureWantedMax(int cultureWantedMax) {
         this.cultureWantedMax = cultureWantedMax;
+    }
+
+    public float getMateScore() {
+        return mateScore;
+    }
+
+    public void setMateScore(float mateScore) {
+        this.mateScore = mateScore;
     }
 }
 
